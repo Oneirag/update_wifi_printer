@@ -9,14 +9,35 @@ and add the command (to run every 5 minutes):
 */5 * * * * python3 <path_to_this_script>/update_wifi_printer.py
 """
 
+
 from subprocess import run, PIPE
 import re
+from time import sleep
+from typing import Literal
 
 CUPS_CONF_FILE = "/etc/cups/printers.conf"
-LPINFO_CMD = "lpinfo -v"
+LPINFO_CMD = "/usr/sbin/lpinfo -v"
+
+
+def run_shell(command) -> str:
+    """Runs command in shell and returns output"""
+    return run(command, shell=True, stdout=PIPE).stdout.decode()
+
+
+def service_cups(what: Literal["start", "stop", "status"]) -> str:
+    """Modify runs service cups <what>. E.g. call service_cups("start") for starting cups daemon
+    and service_cups("stop") for stopping it. Returns result of the command"""
+    return run_shell(f"/usr/sbin/service cups {what}")
+
 
 if __name__ == '__main__':
-    res = run(LPINFO_CMD, shell=True, stdout=PIPE).stdout.decode()
+    # First, check if cups is up and running
+    status = service_cups("status")
+    if re.findall("Active: (\w+)", status)[0] != "active":
+        print("Cups seems not to be active, starting cups service")
+        service_cups("start")
+
+    res = run_shell(LPINFO_CMD)
     print(res)
     match = re.findall("ipp://(.+)", res)
     if not match:
@@ -36,10 +57,10 @@ if __name__ == '__main__':
                 printers_conf = printers_conf.replace("DeviceURI socket://{}".format(ip_printers_conf),
                                                       "DeviceURI socket://{}".format(new_ip))
                 # Stop cups service
-                run("service cups stop", shell=True)
+                service_cups("stop")
                 # Modify text (it cannot be modified while cups daemon is running)
                 with open(CUPS_CONF_FILE, "w") as f:
                     f.write(printers_conf)
                 # restart cups service
-                run("service cups start")
+                service_cups("start")
                 print(f"Printer ip modified to {new_ip}")
