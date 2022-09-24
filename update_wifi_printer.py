@@ -13,7 +13,7 @@ from subprocess import run, PIPE
 import re
 
 CUPS_CONF_FILE = "/etc/cups/printers.conf"
-LPINFO_CMD = "/usr/sbin/lpinfo -v"
+LPINFO_CMD = "lpinfo -v"
 
 if __name__ == '__main__':
     res = run(LPINFO_CMD, shell=True, stdout=PIPE).stdout.decode()
@@ -36,7 +36,7 @@ if __name__ == '__main__':
                 printers_conf = printers_conf.replace("DeviceURI socket://{}".format(ip_printers_conf),
                                                       "DeviceURI socket://{}".format(new_ip))
                 # Stop cups service
-                run("service cups stop")
+                run("service cups stop", shell=True)
                 # Modify text (it cannot be modified while cups daemon is running)
                 with open(CUPS_CONF_FILE, "w") as f:
                     f.write(printers_conf)
